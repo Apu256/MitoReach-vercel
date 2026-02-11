@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MitoReach | Structural Base Editing Predictor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #1e293b;
+        }
+        h1, h2, h3 {
+            font-family: 'Outfit', sans-serif;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .vibrant-gradient {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+        }
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #ffffff;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex">
+
+    <!-- Sidebar -->
+    <aside class="w-80 glass border-r border-slate-200 p-6 flex flex-col gap-8 sticky top-0 h-screen">
+        <div class="flex items-center gap-3">
+            <div class="p-2 vibrant-gradient rounded-xl shadow-lg">
+                <i data-lucide="dna" class="text-white w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 leading-tight">MitoReach</h1>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Structural DNA Editor</p>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-6 overflow-y-auto">
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Mitochondrial Genome</label>
+                <select id="genomeSelect" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                    <option value="zebrafish_mtDNA.gb">Zebrafish (Danio rerio)</option>
+                    <option value="human mtDNA .gb">Human (Homo sapiens)</option>
+                    <option value="mouse mtdna.gb">Mouse (Mus musculus)</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Target Position (1-indexed)</label>
+                <input id="targetPos" type="number" value="3995" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <label class="text-sm font-semibold text-slate-700">Spacer Length</label>
+                    <span id="spacerLenVal" class="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">15 bp</span>
+                </div>
+                <input id="spacerLen" type="range" min="10" max="25" value="15" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Linker Type</label>
+                <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                    <button onclick="setLinker('short')" id="linkerShort" class="linker-btn py-2 text-sm font-semibold rounded-lg transition-all bg-white text-blue-600 shadow-sm">Short</button>
+                    <button onclick="setLinker('long')" id="linkerLong" class="linker-btn py-2 text-sm font-semibold rounded-lg transition-all text-slate-600">Long</button>
+                </div>
+            </div>
+
+            <button onclick="runSimulation()" id="runBtn" class="btn-primary w-full text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 mt-4">
+                <span>Run Simulation</span>
+                <i data-lucide="play" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <div class="mt-auto pt-6 border-t border-slate-200">
+            <p class="text-[10px] text-slate-400 font-medium uppercase tracking-widest text-center">Version 1.0 • Built for Vercel</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-10 overflow-auto">
+        
+        <!-- Header / Welcome -->
+        <div id="welcomeSection" class="flex flex-col items-center justify-center h-full text-center space-y-6">
+            <div class="w-24 h-24 bg-white rounded-3xl flex items-center justify-center shadow-2xl card-shadow animate-bounce">
+                <i data-lucide="microscope" class="w-12 h-12 text-blue-600"></i>
+            </div>
+            <div class="space-y-2">
+                <h2 class="text-4xl font-bold text-slate-800">Ready to Explore?</h2>
+                <p class="text-slate-500 max-w-sm">Select genomic parameters and start the structural simulation to visualize reachability.</p>
+            </div>
+        </div>
+
+        <!-- Results Dashboard -->
+        <div id="resultsSection" class="hidden space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            
+            <!-- Quick Metrics -->
+            <div class="grid grid-cols-4 gap-6">
+                <div class="bg-white p-6 rounded-3xl card-shadow flex items-center gap-5 border border-slate-100">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
+                        <i data-lucide="target" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Position</p>
+                        <h3 id="resPos" class="text-xl font-bold text-slate-800">-</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl card-shadow flex items-center gap-5 border border-slate-100">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                        <i data-lucide="git-merge" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Strand</p>
+                        <h3 id="resStrand" class="text-xl font-bold text-slate-800">-</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl card-shadow flex items-center gap-5 border border-slate-100">
+                    <div id="scoreRing" class="relative flex items-center justify-center w-14 h-14 rounded-full border-4 border-slate-50">
+                        <span id="resScore" class="text-md font-black text-slate-800">0</span>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Reach Score</p>
+                        <h3 id="resStatus" class="text-sm font-bold uppercase tracking-tight">-</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl card-shadow flex items-center gap-5 border border-slate-100">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
+                        <i data-lucide="info" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Motivation</p>
+                        <h3 id="resMotif" class="text-xl font-bold text-slate-800">-</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Display Area -->
+            <div class="grid grid-cols-3 gap-8">
+                <!-- Plot Area -->
+                <div class="col-span-2 bg-white rounded-[2rem] p-8 card-shadow border border-slate-100 flex flex-col items-center">
+                    <div class="flex justify-between w-full mb-6">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="line-chart" class="w-5 h-5 text-blue-600"></i>
+                            Structural Reach Profile
+                        </h3>
+                        <div class="flex gap-2">
+                             <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-500"></span><span class="text-[10px] font-bold text-slate-400">SASD</span></div>
+                             <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-100 border border-red-200"></span><span class="text-[10px] font-bold text-slate-400">STERIC</span></div>
+                        </div>
+                    </div>
+                    <img id="predictionPlot" src="" alt="MitoReach Prediction Plot" class="max-w-full h-auto rounded-2xl shadow-sm border border-slate-50">
+                    <p class="text-slate-400 text-xs mt-6 text-center italic">Calculated shortest surface path distance from TALE anchor to catalytic center.</p>
+                </div>
+
+                <!-- Sequence & Target Info -->
+                <div class="flex flex-col gap-8">
+                    <div class="bg-white rounded-[2.5rem] p-8 card-shadow border border-slate-100 space-y-4">
+                        <h3 class="text-lg font-bold text-slate-800">Spacer Configuration</h3>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 break-all font-mono text-sm tracking-widest text-blue-700" id="resSpacerSeq">
+                            -
+                        </div>
+                        <div class="space-y-1">
+                             <p class="text-xs font-bold text-slate-400 uppercase">Local Context</p>
+                             <p id="resContext" class="text-slate-700 text-sm font-medium italic"></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 rounded-[2.5rem] p-8 glass shadow-2xl text-white space-y-6">
+                        <h3 class="text-lg font-bold flex items-center gap-2">
+                             <i data-lucide="zap" class="w-5 h-5 text-amber-400"></i>
+                             Architecture Tip
+                        </h3>
+                        <p class="text-slate-300 text-sm leading-relaxed" id="resTip">
+                            The analysis highlights the optimal window for editing based on the distance required for the DddA domain to dock precisely into the minor groove.
+                        </p>
+                        <div class="flex gap-4">
+                             <div class="flex-1 p-4 bg-white/10 rounded-2xl border border-white/5 text-center">
+                                  <p class="text-[10px] font-bold text-white/40 uppercase mb-1">Linker</p>
+                                  <p id="tipLinker" class="text-md font-bold text-white">-</p>
+                             </div>
+                             <div class="flex-1 p-4 bg-white/10 rounded-2xl border border-white/5 text-center">
+                                  <p class="text-[10px] font-bold text-white/40 uppercase mb-1">Window</p>
+                                  <p id="tipWindow" class="text-md font-bold text-white">-</p>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Position Table -->
+            <div class="bg-white rounded-[2rem] p-8 card-shadow border border-slate-100 overflow-hidden">
+                <h3 class="text-lg font-bold text-slate-800 mb-6">Position-Specific Analysis</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-100 text-slate-400 uppercase tracking-widest text-[10px] font-black">
+                                <th class="pb-4 px-2">Pos</th>
+                                <th class="pb-4 px-2">Bases (NTS/TS)</th>
+                                <th class="pb-4 px-2">Reach (Å)</th>
+                                <th class="pb-4 px-2">Score</th>
+                                <th class="pb-4 px-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="posTableBody" class="divide-y divide-slate-50">
+                            <!-- Rows injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        let currentLinker = 'short';
+        const spacerLenInput = document.getElementById('spacerLen');
+        const spacerLenVal = document.getElementById('spacerLenVal');
+
+        spacerLenInput.oninput = () => {
+            spacerLenVal.innerText = `${spacerLenInput.value} bp`;
+        };
+
+        function setLinker(type) {
+            currentLinker = type;
+            document.querySelectorAll('.linker-btn').forEach(btn => {
+                btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+                btn.classList.add('text-slate-600');
+            });
+            const selected = document.getElementById('linker' + type.charAt(0).toUpperCase() + type.slice(1));
+            selected.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+            selected.classList.remove('text-slate-600');
+        }
+
+        async function runSimulation() {
+            const btn = document.getElementById('runBtn');
+            const welcome = document.getElementById('welcomeSection');
+            const results = document.getElementById('resultsSection');
+            
+            // Set loading state
+            btn.innerHTML = `<div class="loading-spinner"></div><span>Simulating...</span>`;
+            btn.disabled = true;
+
+            const requestData = {
+                genome_key: document.getElementById('genomeSelect').value,
+                target_pos: parseInt(document.getElementById('targetPos').value),
+                spacer_len: parseInt(spacerLenInput.value),
+                linker_type: currentLinker
+            };
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    welcome.classList.add('hidden');
+                    results.classList.remove('hidden');
+
+                    // Update metrics
+                    document.getElementById('resPos').innerText = data.motif.position;
+                    document.getElementById('resStrand').innerText = data.motif.strand;
+                    document.getElementById('resScore').innerText = Math.round(data.score);
+                    document.getElementById('resMotif').innerText = data.motif.motif;
+                    
+                    const statusText = data.score > 50 ? 'Optimal' : (data.score > 20 ? 'Viable' : 'Marginal');
+                    const statusEl = document.getElementById('resStatus');
+                    statusEl.innerText = statusText;
+                    statusEl.className = `text-sm font-black uppercase tracking-tight ${data.score > 50 ? 'text-emerald-500' : (data.score > 20 ? 'text-blue-500' : 'text-slate-400')}`;
+                    
+                    document.getElementById('resSpacerSeq').innerText = data.spacer;
+                    document.getElementById('resContext').innerText = `"${data.motif.context}"`;
+                    document.getElementById('predictionPlot').src = `data:image/png;base64,${data.plot}`;
+
+                    // Update Tip
+                    document.getElementById('tipLinker').innerText = currentLinker.toUpperCase();
+                    document.getElementById('tipWindow').innerText = data.motif.strand === 'TS' ? '3-8 bp' : '8-13 bp';
+
+                    // Update Table
+                    const tableBody = document.getElementById('posTableBody');
+                    tableBody.innerHTML = '';
+                    data.results.positions.forEach(p => {
+                        const score = p.bases.nts === 'C' ? p.scores.nts : (p.bases.ts === 'C' ? p.scores.ts : 0);
+                        const row = document.createElement('tr');
+                        row.className = p.position === data.motif.position_in_window ? 'bg-blue-50/50' : '';
+                        row.innerHTML = `
+                            <td class="py-4 px-2 font-bold text-slate-700">${p.position}</td>
+                            <td class="py-4 px-2 font-medium text-slate-500">${p.bases.nts}/${p.bases.ts}</td>
+                            <td class="py-4 px-2 font-mono text-slate-600">${p.sasd.primary.toFixed(1)}</td>
+                            <td class="py-4 px-2">
+                                <span class="px-2 py-1 rounded-lg text-xs font-bold ${score > 20 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}">${score.toFixed(0)}</span>
+                            </td>
+                            <td class="py-4 px-2">
+                                <span class="text-xs font-semibold ${p.editability.any_strand ? 'text-emerald-500' : 'text-slate-400'}">
+                                    ${p.editability.any_strand ? '✓ Editable' : '✕ Restricted'}
+                                </span>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+
+                } else if (data.status === 'no_tc') {
+                    alert(data.message);
+                } else {
+                    alert('Error: ' + (data.detail || 'Unknown error during simulation.'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Fatal error connecting to API.');
+            } finally {
+                btn.innerHTML = `<span>Run Simulation</span><i data-lucide="play" class="w-4 h-4"></i>`;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+    </script>
+</body>
+</html>
